@@ -1,13 +1,13 @@
 ---
 name: wiggum
-description: Methodology for the user-triggered /wiggum command (do not self-invoke). An autonomous-continuation loop for long-running work -- run, checkpoint, and verify until a defined Definition of Done holds or a stop-and-escalate condition fires. Covers durable handoff state, baseline re-verification after context compaction, per-commit self-audit, work-unit commit and restack cadence, subagent fan-out limits, host-conditional anvil (live Emacs) tooling, and escalation.
+description: Methodology for the user-triggered /wiggum command (do not self-invoke). An autonomous-continuation loop for long-running work -- run, checkpoint, and verify until a defined Definition of Done holds or a stop-and-escalate condition fires. Covers durable handoff state, baseline re-verification after context compaction, per-commit self-audit, work-unit commit and native gh-stack rebase cadence, subagent fan-out limits, host-conditional anvil (live Emacs) tooling, and escalation.
 ---
 
 # Wiggum
 
 Run autonomously in a work -> checkpoint -> verify loop until the Definition of Done holds, or a stop-and-escalate condition fires. This skill is the methodology; the `/wiggum` command turns it on. Do not enter this mode on your own -- only when the user invokes it.
 
-You perform git operations directly, following the documented approach of the matching workflow. `commit`, `restack`, and `rebase` are user-triggered commands, so follow their procedure rather than invoking them as slash commands.
+You perform git operations directly, following the documented approach of the matching workflow. `commit` and `rebase` are user-triggered commands, so follow their procedure rather than invoking them as slash commands. Manage native GitHub stacks with `gh stack`.
 
 "Parity" means the work matches a named reference target (for example, a source-of-truth implementation). If no target is given, "done" means every objective of the current plan is complete and independently verified.
 
@@ -19,7 +19,8 @@ Exit the loop ONLY when ALL of these hold, with evidence rather than self-assert
 - The build and the full test suite pass, and you have shown the passing output.
 - The last work commit has passed a final `fess` audit -- audit it even if the most recent commits were themselves `fess` fixes.
 - No actionable partner observation is outstanding as of the last cleanup cycle. (Partner review does not necessarily drain to empty; you may finish with a note that further, non-blocking observations are deferred.)
-- The branch is rebased or restacked cleanly onto its base (locally).
+- A standalone branch is rebased cleanly onto its base. A native GitHub stack is
+  cascade-rebased locally by its sole owner with `gh stack rebase`.
 - If a parity target was given, a parity check passes with evidence.
 
 Never edit the plan or the done-criteria to lower the bar. Never weaken, skip, or delete tests, and never hardcode outputs to satisfy a check -- that is reward hacking, and it defeats the whole loop (see the `fix-all` skill's philosophy). Verification comes from a separate evaluator, not from grading your own work.
@@ -30,7 +31,9 @@ Autonomy is not stubbornness, and these conditions OVERRIDE the /wiggum directiv
 
 - the same failing signature or gate persists after a bounded number of attempts (default 3) without intervening progress -- do a root-cause pass, then escalate instead of thrashing. Record the attempt count in the handoff document so it survives compaction, and reset it when the gate passes or the underlying cause demonstrably changes;
 - requirements are ambiguous or appear to have changed;
-- a rebase or restack conflict cannot be resolved without guessing intent;
+- a branch or stack rebase conflict cannot be resolved without guessing intent;
+- a stack branch or its remote SHA moved outside the recorded sole owner's
+  actions;
 - a subagent returns unusable output twice, or PAL consensus cannot be reached;
 - an action would be destructive or irreversible -- data loss, force-pushing or submitting shared history, deleting work.
 
@@ -41,7 +44,7 @@ Report where you are, what you tried, and what you need.
 Keep three distinct artifacts so work resumes exactly where it left off if the machine dies or the session restarts:
 
 1. **Frozen plan / done-criteria** -- the target, written before work. Read-only for the purpose of lowering the bar.
-2. **Handoff document** -- what is done, what remains, how to resume, and the current stop-and-escalate attempt counts. Append and trim to keep it current and task-state oriented.
+2. **Handoff document** -- what is done, what remains, how to resume, and the current stop-and-escalate attempt counts. For a native stack, also record its owner, trunk, ordered branches, parent relation, PR number, expected remote SHA, and worktree. Append and trim to keep it current and task-state oriented.
 3. **Running learnings** -- if the `journal` workflow is in use, that append-only, timestamped record of durable learnings is separate from the handoff. Do not conflate the two.
 
 ## Refresh after compaction
@@ -56,7 +59,13 @@ Each iteration:
 2. Commit it in a clean, logical sequence, following the `commit` workflow's approach (you perform the commits directly; `commit` is user-triggered).
 3. Audit that commit: dispatch a subagent -- the `fess-auditor` agent, or one running `fess` -- to check the work and its claims. Keep the evaluator separate; do not grade your own work. See `references/fess-audit.md` for how to pick the audit scope and what context snapshot to provide. Verify any finding before acting, and fold real fixes into the main work. Do not separately re-audit commits whose only purpose is to fix `fess` findings, nor `partner-cleanup`'s own cleanup commits (it self-verifies) -- that loops without progress.
 4. Check `doc/observations/`; if non-hidden Markdown is present, run `partner-cleanup`, let it make its cleanup commit, then resume.
-5. On cadence (below), bring the branch current: rebase or restack it LOCALLY onto its base, resolving conflicts with the `resolve` workflow. Do NOT submit or push the stack as part of the loop -- pushing rewritten or shared history is a terminal, human-gated action (see Stop and escalate).
+5. On cadence (below), bring the work current. Rebase a standalone branch
+   locally. If this session is the recorded sole stack owner, run
+   `gh stack rebase` so every descendant moves with its parent. A non-owner
+   never rebases one stack member independently. Resolve conflicts with the
+   `resolve` workflow. Do not run `gh stack submit`, `gh stack sync`, or push as
+   part of the loop -- rewritten or shared history is terminal and human-gated
+   unless the enclosing workflow explicitly authorizes it.
 6. Repeat until the Definition of Done holds or a stop condition fires.
 
 ## Cadence -- by work, not by clock
@@ -64,13 +73,22 @@ Each iteration:
 You cannot track wall-clock time reliably across turns, so anchor cadence to work, not minutes:
 
 - Commit at each completed logical unit.
-- Rebase or restack before starting a new independent unit, or whenever the base may have moved -- staggered from commits so a restack and a commit never collide in the same step.
+- Rebase a standalone branch or cascade-rebase an owned stack before starting a
+  new independent unit, or whenever the base may have moved. Stagger this from
+  commits so a rebase and a commit never collide in the same step.
 
-Do not batch many units into one giant commit, and do not thrash by committing or restacking mid-unit.
+Do not batch many units into one giant commit, and do not thrash by committing
+or rebasing mid-unit.
 
 ## Keep the branch current
 
-Keep the branch rebased on its base as you go: on a Graphite stack follow the `restack` procedure (rebase from the base of the stack up to the current branch, not above); off Graphite, `rebase` and `resolve`. In the loop this is a LOCAL currency operation only -- submitting or pushing the stack is a separate, human-gated step, never part of the cadence.
+Keep a standalone branch rebased on its base as you go. For a native GitHub
+stack, first verify that this session is the recorded sole owner and that every
+remote SHA still matches the handoff, then run `gh stack rebase` across the
+whole chain. If another worktree has a stack branch checked out, or any expected
+SHA differs, stop rather than rewriting around it. This cadence is local only;
+`gh stack submit`, `gh stack sync`, and pushes remain separate, authorized
+operations.
 
 ## Parallelize non-interfering work
 
