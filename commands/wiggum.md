@@ -1,13 +1,13 @@
 ---
-description: Turn on autonomous-continuation mode -- run, checkpoint, and verify until done, following the wiggum loop methodology
+description: Explicitly turn on bounded autonomous mode with frozen scope and one root orchestrator
 disable-model-invocation: true
 ---
 
-Enter autonomous-continuation mode for the current work: keep going, without pausing for confirmation, until the Definition of Done holds -- all planned tasks complete and independently verified, or, if a reference target was named, parity with it achieved -- or until a stop-and-escalate condition requires the human.
+Enter bounded autonomous mode as sole root. Freeze scope, risk, expected surface, and budgets. Stop on expansion, two repair rounds, three identical failures, ownership conflict, or destructive action. Do not run this command from another skill.
 
 Always read the environment you need from the current working tree's direnv. Never use `nix develop` to run commands, and never install dependencies on the fly. If you are blocked on a dependency requirement, stop working and ask for the dependency you need. If it can be added to the Nix environment, then do so, regenerate the environment using `de`, and then re-read the direnv environment and try again.
 
-Follow the `wiggum` skill for the full loop methodology: the Definition of Done and stop-and-escalate criteria; the durable plan/handoff/journal state; baseline re-verification after every context compaction; the work -> commit -> audit -> partner-cleanup -> branch-or-stack-rebase loop; the work-unit (not wall-clock) cadence; subagent fan-out limits via the `parallelize` skill; live-Emacs tooling via the `anvil` skill where the host provides the anvil MCP server; and PAL consensus for significant decisions.
+Follow `wiggum` and `change-control`: smallest correct diff, risk-proportionate checks, leaf delegation, one stable-candidate review, one final gate, durable counters, and escalation before expansion.
 
 When available, use Anvil via your `anvil` skill as the default for every operation it supports. Check unsaved Emacs buffers before each edit batch; prefer Anvil for file exploration and git queries. Fall back to shell or apply_patch only when required, and briefly state why. Recheck Anvil state before committing.
 

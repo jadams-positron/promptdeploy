@@ -1,11 +1,11 @@
 ---
 name: wiggum
-description: Methodology for the user-triggered /wiggum command (do not self-invoke). An autonomous-continuation loop for long-running work -- run, checkpoint, and verify until a defined Definition of Done holds or a stop-and-escalate condition fires. Covers durable handoff state, baseline re-verification after context compaction, per-commit self-audit, work-unit commit and native gh-stack rebase cadence, subagent fan-out limits, host-conditional anvil (live Emacs) tooling, and escalation.
+description: Explicitly user-triggered bounded autonomous work as the sole root orchestrator with frozen scope and total repair, retry, and changed-surface budgets. Never self-invoke or run beneath another skill.
 ---
 
 # Wiggum
 
-Run autonomously in a work -> checkpoint -> verify loop until the Definition of Done holds, or a stop-and-escalate condition fires. This skill is the methodology; the `/wiggum` command turns it on. Do not enter this mode on your own -- only when the user invokes it.
+Run only when explicitly invoked. Act as sole root under `change-control`; never run beneath another orchestrator. Freeze scope, risk, expected surface, and budgets. Use two total repair rounds, three attempts for one unchanged failure, and one broad final review.
 
 You perform git operations directly, following the documented approach of the matching workflow. `commit` and `rebase` are user-triggered commands, so follow their procedure rather than invoking them as slash commands. Manage native GitHub stacks with `gh stack`.
 
@@ -29,7 +29,8 @@ Never edit the plan or the done-criteria to lower the bar. Never weaken, skip, o
 
 Autonomy is not stubbornness, and these conditions OVERRIDE the /wiggum directive to keep going -- when one fires, stop and hand back to the human, even mid-loop. Stop and ask when:
 
-- the same failing signature or gate persists after a bounded number of attempts (default 3) without intervening progress -- do a root-cause pass, then escalate instead of thrashing. Record the attempt count in the handoff document so it survives compaction, and reset it when the gate passes or the underlying cause demonstrably changes;
+- two total repair rounds have been consumed;
+- the same failing signature persists after three attempts without progress;
 - requirements are ambiguous or appear to have changed;
 - a branch or stack rebase conflict cannot be resolved without guessing intent;
 - a stack branch or its remote SHA moved outside the recorded sole owner's
@@ -57,7 +58,7 @@ Each iteration:
 
 1. Advance one logical unit of work -- a coherent change that builds and passes. However, if that logic unit is very small, then proceed in larger steps so that commits are not being generated too often -- since that feedback loop takes a lot of time, and doing so too frquently would slow down development unnecessarily.
 2. Commit it in a clean, logical sequence, following the `commit` workflow's approach (you perform the commits directly; `commit` is user-triggered).
-3. Audit that commit: dispatch a subagent -- the `fess-auditor` agent, or one running `fess` -- to check the work and its claims. Keep the evaluator separate; do not grade your own work. See `references/fess-audit.md` for how to pick the audit scope and what context snapshot to provide. Verify any finding before acting, and fold real fixes into the main work. Do not separately re-audit commits whose only purpose is to fix `fess` findings, nor `partner-cleanup`'s own cleanup commits (it self-verifies) -- that loops without progress.
+3. Do not audit every commit. After implementation, freeze one candidate and run one risk-appropriate final review, with `fess` as a read-only lens when warranted. Repair only blocking or coupled findings within two rounds and rerun affected checks and concerns.
 4. Check `doc/observations/`; if non-hidden Markdown is present, run `partner-cleanup`, let it make its cleanup commit, then resume.
 5. On cadence (below), bring the work current. Rebase a standalone branch
    locally. If this session is the recorded sole stack owner, run
